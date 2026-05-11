@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>にゃん.jp</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f1115;
+      color: #f5f5f5;
+      font-family: system-ui, sans-serif;
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+
+    .hero {
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: 64px;
+      margin: 0 0 16px;
+    }
+
+    .subtitle {
+      font-size: 22px;
+      color: #c7c7c7;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(74, 222, 128, 0.15);
+      color: #4ade80;
+      font-weight: bold;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #181b22;
+      border: 1px solid #2a2f3a;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: #4ade80;
+      font-size: 22px;
+    }
+
+    ul {
+      padding-left: 20px;
+      margin-bottom: 0;
+    }
+
+    a {
+      color: #4ade80;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .footer {
+      margin-top: 40px;
+      color: #888;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <section class="hero">
+      <h1>にゃん.jp</h1>
+      <p class="subtitle">
+        Ubuntu / Docker / AWS で構築・運用している個人サーバーです。
+      </p>
+      <span class="badge">ONLINE / HTTPS / AWS Hosted</span>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Server Status</h2>
+        <p>稼働中。HTTPS化済み。Docker環境で運用中。</p>
+        <p><a href="/status/">View Status →</a></p>
+      </div>
+
+      <div class="card">
+        <h2>Tech Stack</h2>
+        <ul>
+          <li>Ubuntu Linux</li>
+          <li>Nginx</li>
+          <li>Docker / Compose</li>
+          <li>AWS EC2</li>
+          <li>PostgreSQL</li>
+          <li>Let's Encrypt</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>What I Built</h2>
+        <ul>
+          <li>SSH鍵認証</li>
+          <li>rootログイン無効化</li>
+          <li>Fail2ban導入</li>
+          <li>Docker環境構築</li>
+          <li>Flask + PostgreSQL連携</li>
+          <li>AWS移行 / HTTPS化</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>Links</h2>
+        <p><a href="/read">DB Check →</a></p>
+        <p><a href="/status/">Server Status →</a></p>
+      </div>
+    </section>
+
+    <p class="footer">
+      Hosted on AWS EC2 / Powered by Docker, Nginx and PostgreSQL.
+    </p>
+  </main>
+</body>
+</html>

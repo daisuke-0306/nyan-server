@@ -1,0 +1,15 @@
+cd ~/docker-status
+
+cat > html/index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Docker nginx</title>
+</head>
+<body>
+  <h1>Docker版トップページ</h1>
+  <p><a href="/status/">statusページへ</a></p>
+</body>
+</html>
+EOF

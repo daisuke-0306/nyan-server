@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    container_name: nginx-container
+    ports:
+      - "8080:80"
+    depends_on:
+      - app
+
+  app:
+    build: ./app
+    container_name: app-container
+

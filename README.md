@@ -22,6 +22,8 @@ Webサーバーを構築し、GitHub Actionsによる自動デプロイ環境を
 - DB確認ページ（/read）
 
 ## アーキテクチャ
+
+'''text
 [User]
   ↓
 nginx

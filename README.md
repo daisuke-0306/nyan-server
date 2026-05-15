@@ -23,7 +23,7 @@ Webサーバーを構築し、GitHub Actionsによる自動デプロイ環境を
 
 ## アーキテクチャ
 
-'''text
+```text
 [User]
   ↓
 nginx

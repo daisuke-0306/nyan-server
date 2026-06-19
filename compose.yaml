@@ -16,6 +16,7 @@ services:
     container_name: app-container
     volumes:
       - ./data:/data
+      - ./tests:/app/tests
     environment:
       - DB_HOST=db
       - DB_NAME=testdb

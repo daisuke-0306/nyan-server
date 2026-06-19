@@ -13,6 +13,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Build containers for test
+        run: docker compose up -d --build app
+
+      - name: Run tests
+        run: docker compose exec -T app sh -c "PYTHONPATH=/app pytest"
+
+      - name: Stop test containers
+        if: always()
+        run: docker compose down
+
       - name: SSH to AWS and Deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -22,4 +32,3 @@ jobs:
           script: |
             cd ~/docker-status
             ./deploy.sh
-

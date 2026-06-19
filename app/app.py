@@ -1,6 +1,9 @@
 from flask import Flask
 import os
 import psycopg2
+import requests
+
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 app = Flask(__name__)
 
@@ -8,9 +11,24 @@ DB_HOST = os.getenv("DB_HOST", "db")
 DB_NAME = os.getenv("DB_NAME", "testdb")
 DB_USER = os.getenv("DB_USER", "user")
 DB_PASS = os.getenv("DB_PASS", "password")
+db_alert_sent = False
+
+def send_discord(message):
+    if not DISCORD_WEBHOOK_URL:
+        return
+
+    try:
+        requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={"content": message},
+            timeout=5
+        )
+    except Exception as e:
+        print(f"Discord notify failed: {e}")
 
 @app.route("/health")
 def health():
+    global db_alert_sent
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -18,8 +36,24 @@ def health():
         cur.fetchone()
         cur.close()
         conn.close()
+
+        if db_alert_sent:
+            send_discord(
+                "🚀 にゃん.jp DB接続復旧\nDatabase connection restored."
+            )
+            db_alert_sent = False
+
         db_status = "OK"
+
     except Exception as e:
+        print(f"[HEALTH CHECK ERROR] Database connection failed: {e}", flush=True)
+
+        if not db_alert_sent:
+            send_discord(
+                f"🚨 にゃん.jp DB接続エラー\n{e}"
+            )
+            db_alert_sent = True
+
         db_status = "NG"
 
     return f"""

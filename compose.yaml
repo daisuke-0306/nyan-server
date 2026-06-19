@@ -22,6 +22,7 @@ services:
       - DB_NAME=testdb
       - DB_USER=user
       - DB_PASS=password
+      - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1517413796635738163/enUmviWs57nqepOgYpEZz2OxE61EaVaIicPi8Fb2kUIeeQLKXtqs5WzK-vcM4dxWuI3t
     depends_on:
       - db
 

@@ -146,11 +146,13 @@ EC2 (AZ1)         EC2 (AZ2)
 
 ## 苦労した点
 
-さくらVPSでの検証後、AWS EC2へ移行して再構築しました。
+本システムは、一度さくらVPS上で約2週間かけて構築した環境が、SSHの設定変更によってサーバーへ接続できなくなり、復旧が困難になったことをきっかけに、AWS EC2上でゼロから再構築したものです。
 
-SSH設定ミスによるサーバー再構築や、nginx・Docker・GitHub Actions・ALB・Auto Scaling Groupの設定で多くのエラーを経験しましたが、ログやHealth Checkの状態を確認しながら原因を切り分け、試行錯誤しながら解決する力を身につけました。
+再構築では、nginx・Docker・Flask・PostgreSQL・GitHub Actions・Discord通知などを一つずつ組み直し、本番運用を意識したインフラ環境の構築に取り組みました。さらに、学習用環境ではALBやAuto Scaling Groupを用いた高可用性構成の検証も行いました。
 
-特に、ALBの503エラーやTarget GroupのUnused・Unhealthy状態について、Security Group・Target Group・Health Checkを順番に確認しながら原因を特定・解決できたことは、大きな学びとなりました。
+その過程で、nginxの設定ミス、Dockerのビルドエラー、GitHub Actionsの認証エラー、ALBの503エラー、Target GroupのUnused・Unhealthy状態など、多くの問題に直面しました。しかし、ログやHealth Checkの状態を確認し、Security Group・Target Group・アプリケーション設定を一つずつ切り分けながら原因を特定し、試行錯誤を重ねて解決しました。
+
+この経験を通して、インフラでは「壊れないように作る」だけでなく、「障害発生時に原因を切り分け、再構築・復旧できる力」が重要であることを実践的に学びました。
 
 ---
 

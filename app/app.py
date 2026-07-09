@@ -2,6 +2,11 @@ from flask import Flask
 import os
 import psycopg2
 import requests
+import boto3
+from datetime import datetime, timedelta, timezone
+
+INSTANCE_ID = "i-0bef4177b94f78266"
+REGION_NAME = "ap-southeast-2"
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
@@ -125,6 +130,76 @@ def get_conn():
         user=DB_USER,
         password=DB_PASS
     )
+
+@app.route("/api/cpu")
+def cpu():
+    cloudwatch = boto3.client("cloudwatch", region_name=REGION_NAME)
+
+    end_time = datetime.now(timezone.utc)
+    start_time = end_time - timedelta(minutes=15)
+
+    response = cloudwatch.get_metric_statistics(
+        Namespace="AWS/EC2",
+        MetricName="CPUUtilization",
+        Dimensions=[
+            {
+                "Name": "InstanceId",
+                "Value": INSTANCE_ID
+            }
+        ],
+        StartTime=start_time,
+        EndTime=end_time,
+        Period=300,
+        Statistics=["Average"]
+    )
+
+    datapoints = response.get("Datapoints", [])
+
+    if not datapoints:
+        return {"cpu": None, "status": "no data"}
+
+    latest = sorted(datapoints, key=lambda x: x["Timestamp"])[-1]
+
+    return {
+        "cpu": round(latest["Average"], 2),
+        "status": "ok"
+    }
+
+@app.route("/api/cpu/history")
+def cpu_history():
+    cloudwatch = boto3.client("cloudwatch", region_name=REGION_NAME)
+
+    end_time = datetime.now(timezone.utc)
+    start_time = end_time - timedelta(minutes=30)
+
+    response = cloudwatch.get_metric_statistics(
+        Namespace="AWS/EC2",
+        MetricName="CPUUtilization",
+        Dimensions=[
+            {
+                "Name": "InstanceId",
+                "Value": INSTANCE_ID
+            }
+        ],
+        StartTime=start_time,
+        EndTime=end_time,
+        Period=300,
+        Statistics=["Average"]
+    )
+
+    datapoints = response.get("Datapoints", [])
+
+    data = []
+    for point in sorted(datapoints, key=lambda x: x["Timestamp"]):
+        data.append({
+            "time": point["Timestamp"].strftime("%H:%M"),
+            "cpu": round(point["Average"], 2)
+        })
+
+    return {
+        "status": "ok",
+        "data": data
+    }
 
 @app.route("/")
 def home():

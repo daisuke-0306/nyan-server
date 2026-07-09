@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS High Availability Lab | にゃん.jp</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f1115;
+      color: #f5f5f5;
+      font-family: system-ui, sans-serif;
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+
+    a {
+      color: #4ade80;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 52px;
+      margin: 32px 0 12px;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #4ade80;
+    }
+
+    .description {
+      color: #c7c7c7;
+      max-width: 760px;
+    }
+
+    .card {
+      background: #181b22;
+      border: 1px solid #2a2f3a;
+      border-radius: 20px;
+      padding: 28px;
+      margin-top: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+    }
+
+    pre {
+      background: #0f1115;
+      border: 1px solid #2a2f3a;
+      border-radius: 14px;
+      padding: 20px;
+      overflow-x: auto;
+      color: #d1d5db;
+    }
+
+    ul {
+      color: #c7c7c7;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(74, 222, 128, 0.15);
+      color: #4ade80;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .lab-image {
+      width: 100%;
+      border-radius: 14px;
+      margin-top: 18px;
+      border: 1px solid #2a2f3a;
+      background: #0f1115;
+    }
+
+    .caption {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <a href="/">← Back to Top</a>
+
+    <h1>AWS High Availability Lab</h1>
+    <p class="description">
+      本番環境とは別に学習用AWS環境を構築し、
+      Application Load BalancerとAuto Scaling Groupを用いた
+      高可用性構成と自己修復の仕組みを検証しました。
+    </p>
+
+    <span class="badge">ALB / Auto Scaling / Multi-AZ / Self Healing</span>
+
+    <section class="card">
+      <h2>Architecture</h2>
+      <pre>Internet
+    ↓
+Application Load Balancer
+    ↓
+Auto Scaling Group
+   ↙                 ↘
+EC2 (AZ1)         EC2 (AZ2)</pre>
+    </section>
+
+<section class="card">
+  <h2>1. Application Load Balancer</h2>
+  <p class="description">
+    Internet-facingのApplication Load Balancerを構築し、
+    外部からのHTTPリクエストを受け付ける入口を作成しました。
+  </p>
+  <img class="lab-image" src="images/alb.png" alt="Application Load Balancer">
+  <p class="caption">
+    HTTP:80のListenerを設定し、受信したリクエストをTarget Groupへ転送する構成を確認しました。
+  </p>
+  <p class="caption">
+    この構成により、利用者はバックエンドのEC2を直接意識せず、ALB経由でサービスへアクセスできます。
+  </p>
+</section>
+
+<section class="card">
+  <h2>2. Target Group / Health Check</h2>
+  <p class="description">
+    Target GroupにEC2インスタンスを登録し、
+    Health Checkによって正常なインスタンスへルーティングされることを確認しました。
+  </p>
+  <img class="lab-image" src="images/target-group.png" alt="Target Group Healthy">
+  <p class="caption">
+    登録済みターゲットがHealthy状態になっていることを確認し、ALBから正常に振り分けられる状態にしました。
+  </p>
+  <p class="caption">
+    Health Checkに失敗したインスタンスは転送対象から外れるため、障害時にも正常なEC2へリクエストを流せます。
+  </p>
+</section>
+
+<section class="card">
+  <h2>3. Launch Template</h2>
+  <p class="description">
+    Auto Scaling Groupで利用するために、
+    AMI・インスタンスタイプ・キーペア・Security Groupなどの起動設定をLaunch Templateとして定義しました。
+  </p>
+  <img class="lab-image" src="images/launch-template.png" alt="Launch Template">
+  <p class="caption">
+    Launch Templateにより、同じ構成のEC2インスタンスを自動生成できるようにしました。
+  </p>
+  <p class="caption">
+    個別のサーバーを手作業で復旧するのではなく、テンプレートから再作成するクラウドらしい運用を検証しました。
+  </p>
+</section>
+
+<section class="card">
+  <h2>4. Auto Scaling Group</h2>
+  <p class="description">
+    Desired Capacityを2台、Minimum Capacityを2台、Maximum Capacityを4台に設定し、
+    常に2台以上のEC2を維持する構成を作成しました。
+  </p>
+  <img class="lab-image" src="images/auto-scaling-group.png" alt="Auto Scaling Group">
+  <p class="caption">
+    2台のEC2がInService / Healthyの状態で管理されていることを確認しました。
+  </p>
+  <p class="caption">
+    複数のAvailability Zoneに分散することで、単一インスタンス障害に強い構成を検証しました。
+  </p>
+</section>
+
+<section class="card">
+  <h2>Self Healing Test</h2>
+  <p class="description">
+    EC2インスタンスを1台Terminateし、障害発生を想定した検証を行いました。
+  </p>
+  <p class="caption">
+    Terminate後、Auto Scaling GroupがDesired Capacityを維持するため、
+    数十秒後に新しいEC2インスタンスを自動生成することを確認しました。
+  </p>
+  <p class="caption">
+    この検証を通して、障害発生時にサーバーを手作業で修復するのではなく、
+    設計図から自動的に再作成するSelf Healingの考え方を学びました。
+  </p>
+</section>
+
+    <section class="card">
+      <h2>What I Learned</h2>
+      <ul>
+        <li>ALBは複数EC2へアクセスを分散できる</li>
+        <li>Health Checkにより異常なEC2を自動的に切り離せる</li>
+        <li>ASGは必要な台数を維持するため、自動でEC2を作成する</li>
+        <li>クラウドでは「壊れたサーバーを直す」より「設計図から再作成する」考え方が重要</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li>ALBのSecurity Group設定不足によりアクセス不可を経験</li>
+        <li>Target GroupがUnused / Unhealthyになる問題を確認</li>
+        <li>503エラー発生時にSecurity Group・Target Group・Health Checkを切り分けて解決</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

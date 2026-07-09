@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Monitoring | にゃん.jp</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0f1115;
+      color: #f5f5f5;
+      font-family: system-ui, sans-serif;
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+
+    a {
+      color: #4ade80;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 52px;
+      margin: 32px 0 12px;
+    }
+
+    .description {
+      color: #c7c7c7;
+      max-width: 760px;
+    }
+
+    .card {
+      background: #181b22;
+      border: 1px solid #2a2f3a;
+      border-radius: 20px;
+      padding: 28px;
+      margin-top: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+    }
+
+    .cpu-value {
+      font-size: 56px;
+      font-weight: 800;
+      color: #4ade80;
+      margin: 12px 0;
+    }
+
+    .cpu-bar {
+      height: 16px;
+      background: #2a2f3a;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .cpu-fill {
+      height: 100%;
+      width: 0%;
+      background: #4ade80;
+      transition: width 0.4s ease;
+    }
+
+    .meta {
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(74, 222, 128, 0.15);
+      color: #4ade80;
+      font-weight: bold;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <a href="/">← Back to Top</a>
+
+    <h1>Live Monitoring</h1>
+    <p class="description">
+      CloudWatch APIからEC2のCPU使用率を取得し、
+      にゃん.jp上でリアルタイムに表示しています。
+    </p>
+
+    <span class="badge">CloudWatch / Flask API / JavaScript</span>
+
+    <section class="card">
+      <h2>EC2 CPU Usage</h2>
+      <canvas id="cpuChart"></canvas>
+
+      <div class="cpu-value">
+        <span id="cpu-value">--</span>%
+      </div>
+
+      <div class="cpu-bar">
+        <div id="cpu-fill" class="cpu-fill"></div>
+      </div>
+
+      <p id="cpu-status" class="meta">Loading...</p>
+      <p class="meta">
+        Flow: Browser → Flask API → CloudWatch → EC2 Metrics
+      </p>
+    </section>
+  </main>
+
+<script>
+  let cpuChart;
+
+  async function fetchCpu() {
+    const response = await fetch('/api/cpu');
+    const data = await response.json();
+
+    if (data.status === 'ok' && data.cpu !== null) {
+      const cpu = Number(data.cpu);
+      document.getElementById('cpu-value').textContent = cpu.toFixed(2);
+      document.getElementById('cpu-fill').style.width = Math.min(cpu, 100) + '%';
+      document.getElementById('cpu-status').textContent =
+        'Status: OK / Last updated: ' + new Date().toLocaleTimeString('ja-JP');
+    }
+  }
+
+  async function fetchCpuHistory() {
+    const response = await fetch('/api/cpu/history');
+    const result = await response.json();
+
+    if (result.status !== 'ok') return;
+
+    const labels = result.data.map(item => item.time);
+    const values = result.data.map(item => item.cpu);
+
+    if (!cpuChart) {
+      const ctx = document.getElementById('cpuChart');
+
+      cpuChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'CPU Utilization (%)',
+            data: values,
+            tension: 0.35
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: {
+                color: '#c7c7c7'
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: '#9ca3af'
+              },
+              grid: {
+                color: '#2a2f3a'
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#9ca3af'
+              },
+              grid: {
+                color: '#2a2f3a'
+              }
+            }
+          }
+        }
+      });
+    } else {
+      cpuChart.data.labels = labels;
+      cpuChart.data.datasets[0].data = values;
+      cpuChart.update();
+    }
+  }
+
+  function updateMonitoring() {
+    fetchCpu();
+    fetchCpuHistory();
+  }
+
+  updateMonitoring();
+  setInterval(updateMonitoring, 5000);
+</script>
+
+</body>
+</html>

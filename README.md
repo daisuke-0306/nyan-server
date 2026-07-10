@@ -10,54 +10,91 @@
 
 ## 概要
 
-AWS EC2上にDocker・nginx・Flask・PostgreSQLを用いたWebシステムを構築しました。
+AWS EC2上に、Docker・nginx・Flask・PostgreSQLを用いたWebシステムを構築し、独自ドメイン「にゃん.jp」で公開しています。
 
-GitHub ActionsによるCI/CD、pytestによる自動テスト、Discordによる障害監視・復旧通知を実装し、本番運用を意識したインフラ構成を目指しました。
+本番環境では、Amazon CloudFrontをCDNとして配置し、そのオリジンにApplication Load Balancerを設定しています。CloudFrontでは静的コンテンツをキャッシュし、`/api/*` はキャッシュしないBehaviorを設定することで、表示速度の向上とリアルタイムAPIの両立を図っています。
 
-また、本番環境とは別に学習用AWS環境を構築し、Application Load Balancer（ALB）とAuto Scaling Group（ASG）を用いた高可用性構成や自己修復（Self Healing）の仕組みを検証しました。
+また、GitHub ActionsによるCI/CD、pytestによる自動テスト、CloudWatchによるEC2監視を実装しています。CPU使用率がしきい値を超えた場合は、CloudWatch AlarmからSNSを経由してLambdaを実行し、Discordへ自動通知する監視基盤を構築しました。
+
+本番環境とは別に、ALB・Target Group・Launch Template・Auto Scaling Groupを使用した高可用性構成と、EC2障害時のSelf Healingも検証しています。
 
 ---
 
 ## 使用技術
 
-- AWS EC2 (Ubuntu)
-- nginx (Reverse Proxy)
+### Infrastructure / AWS
+
+- AWS EC2
+- Amazon CloudFront
+- Application Load Balancer
+- Target Group
+- Amazon CloudWatch
+- CloudWatch Alarm
+- Amazon SNS
+- AWS Lambda
+- IAM Role
+- Auto Scaling Group
+- Launch Template
+
+### Application
+
+- Ubuntu Linux
 - Docker / Docker Compose
+- nginx
 - Flask
+- Gunicorn
 - PostgreSQL
-- GitHub Actions (CI/CD)
+- Python / boto3
+
+### CI/CD・監視
+
+- GitHub Actions
 - pytest
 - Discord Webhook
-- Let's Encrypt (HTTPS)
-- Application Load Balancer (ALB)
-- Auto Scaling Group (ASG)
-
+- Let's Encrypt
+- Chart.js
 ---
 
 ## 本番環境アーキテクチャ
 
 ```text
 User
- ↓ HTTPS
-nginx (Reverse Proxy)
- ↓
-Docker
- ├─ Flask (app)
- └─ PostgreSQL (db)
-```
+ │
+ │ HTTPS
+ ▼
+Amazon CloudFront
+ │
+ │ HTTP : 80
+ ▼
+Application Load Balancer
+ │
+ ▼
+Target Group
+ │
+ ▼
+AWS EC2
+ │
+ ▼
+Docker Compose
+ ├── nginx
+ ├── Flask + Gunicorn
+ └── PostgreSQL
 
 ---
 
 ## 主な機能
 
-- HTTPS対応Webサイト公開
+- 独自ドメイン・HTTPS対応Webサイト
+- CloudFrontによるCDN配信
+- ALBを経由したEC2へのアクセス
 - Flask + PostgreSQLによるDB連携
-- Health Checkページ (`/health`)
-- ステータスページ (`/status`)
-- DB確認ページ (`/read`)
+- CloudWatch APIによるCPU使用率取得
+- Chart.jsを用いたリアルタイム監視画面
+- CloudWatch AlarmによるCPUしきい値監視
+- SNS・Lambda・Discord Webhookによる自動通知
 - GitHub ActionsによるCI/CD
 - pytestによる自動テスト
-- Discordによる障害通知・復旧通知
+- Auto Scaling・Self Healing検証
 
 ---
 
@@ -92,6 +129,90 @@ Discordへ復旧通知
 ```
 
 障害通知の連投を防ぐため、同一障害では一度だけ通知し、復旧時に状態をリセットする仕組みを実装しています。
+
+```text
+EC2 CPUUtilization
+        │
+        ▼
+Amazon CloudWatch
+        │
+        ▼
+CloudWatch Alarm
+        │
+        ▼
+Amazon SNS
+        │
+        ▼
+AWS Lambda
+        │
+        ▼
+Discord Webhook
+```
+---
+
+CloudFrontは現在、ALBをオリジンとして使用し、キャッシュBehaviorによってパスごとの扱いを変えている。AWS公式上も、CloudFrontではオリジンとCache Behaviorを設定し、エッジキャッシュを利用してオリジンへのアクセス数と遅延を減らせる。 [oai_citation:4‡AWS ドキュメント](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html?utm_source=chatgpt.com)
+
+## Amazon CloudFront
+
+公開サイトのレスポンス改善とEC2へのリクエスト削減を目的として、CloudFrontを導入しました。
+
+CloudFrontのオリジンには、EC2を直接指定せずApplication Load Balancerを設定しています。これにより、将来的にEC2の台数が増減してもCloudFront側の設定を変更せず、ALB側で負荷分散できる構成にしています。
+
+### Cache Behavior
+
+| Path Pattern | Cache Policy | 目的 |
+|---|---|---|
+| `Default (*)` | `CachingOptimized` | HTML、CSS、JavaScript、画像などの配信 |
+| `/api/*` | `CachingDisabled` | CPU使用率など、リアルタイムAPIの配信 |
+
+`/api/cpu` と `/api/cpu/history` は値が継続的に変化するため、CloudFrontに古い値が保持されないようキャッシュを無効化しています。
+
+### Troubleshooting
+
+CloudFront導入直後、CloudFront経由のアクセスで `504 Gateway Timeout` が発生しました。
+
+原因は、CloudFrontのOrigin Protocol Policyが `HTTPS Only` である一方、ALBにはHTTP 80番のリスナーしか設定されていなかったことです。
+
+Origin Protocol Policyを `HTTP Only` に変更し、CloudFrontからALBへの通信をHTTP 80番に合わせることで解決しました。
+
+---
+
+## Application Load Balancer
+
+CloudFrontのオリジンとしてApplication Load Balancerを配置しています。
+
+### 役割
+
+- EC2へのリクエスト転送
+- Target Groupを利用したターゲット管理
+- `/health` によるHealth Check
+- 将来的な複数EC2への負荷分散
+- Auto Scalingとの連携を想定した構成
+
+### Health Check
+
+```text
+Protocol: HTTP
+Port: 80
+Path: /health
+
+---
+
+```markdown
+## CloudWatch Alarm・SNS・Lambda・Discord通知
+
+EC2のCPU使用率をCloudWatchで監視し、しきい値を超えた場合にDiscordへ自動通知する仕組みを構築しています。
+
+### 通知フロー
+
+```text
+CloudWatch Alarm
+        ↓
+SNS Topic
+        ↓
+Lambda Function
+        ↓
+Discord Webhook
 
 ---
 
